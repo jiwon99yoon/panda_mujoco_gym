@@ -1,3 +1,4 @@
+#/home/minjun/panda_mujoco_gym/train_sac_w_stable.py
 #!/usr/bin/env python3
 """
 Stable-Baselines3 SAC 기반 Panda 로봇 학습 코드
@@ -55,7 +56,10 @@ class Config:
     video_freq = 50_000
     video_length = 1000
     
-    # 디렉토리 설정
+    # 시각화 설정
+    enable_realtime_viz = True      # 실시간 MuJoCo 창 표시
+    auto_close_window = True        # 30초 후 자동 닫기
+    viz_duration = 30               # 시각화 지속 시간 (초)
     base_dir = "data"
     model_dir = os.path.join(base_dir, "models")
     results_dir = os.path.join(base_dir, "training_results")
@@ -94,12 +98,42 @@ class TrainingCallback(BaseCallback):
         self.episode_lengths = []
         self.csv_file = os.path.join(log_dir, f"training_log_{config.experiment_name}.csv")
         
+        # 6단계 시각화를 위한 설정
+        self.total_timesteps = config.total_timesteps
+        self.visualization_steps = [
+            0,  # 학습 전 (무작위)
+            self.total_timesteps // 5,      # 1/5 진행
+            self.total_timesteps * 2 // 5,  # 2/5 진행  
+            self.total_timesteps * 3 // 5,  # 3/5 진행
+            self.total_timesteps * 4 // 5,  # 4/5 진행
+            self.total_timesteps             # 학습 완료
+        ]
+        self.completed_visualizations = set()
+        
         # CSV 파일 초기화
         with open(self.csv_file, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['Timestep', 'Episode', 'Reward', 'Length', 'FPS'])
     
     def _on_step(self) -> bool:
+        # 6단계 시각화 체크
+        for i, target_step in enumerate(self.visualization_steps):
+            if (target_step not in self.completed_visualizations and 
+                self.num_timesteps >= target_step):
+                
+                self.completed_visualizations.add(target_step)
+                stage_name = [
+                    "0_학습전_무작위",
+                    "1_학습진행_20퍼센트", 
+                    "2_학습진행_40퍼센트",
+                    "3_학습진행_60퍼센트", 
+                    "4_학습진행_80퍼센트",
+                    "5_학습완료_100퍼센트"
+                ][i]
+                
+                print(f"\n🎬 [{stage_name}] 실시간 시각화 시작! (Step {self.num_timesteps})")
+                self.visualize_current_performance(stage_name)
+        
         # 에피소드가 끝났을 때
         if self.locals.get('dones', [False])[0]:
             info = self.locals.get('infos', [{}])[0]
@@ -132,6 +166,113 @@ class TrainingCallback(BaseCallback):
                     ])
         
         return True
+    
+    def visualize_current_performance(self, stage_name):
+        """현재 모델의 성능을 실시간 시각화합니다."""
+        if not config.enable_realtime_viz:
+            print(f"🎥 [{stage_name}] 비디오만 녹화 중...")
+            self.record_stage_video(stage_name)
+            return
+            
+        try:
+            if config.auto_close_window:
+                print(f"🎮 MuJoCo 환경에서 실시간 시연 중... ({config.viz_duration}초 후 자동 진행)")
+            else:
+                print(f"🎮 MuJoCo 환경에서 실시간 시연 중... (창을 닫으면 다음 단계로 진행)")
+            
+            # 실시간 시각화용 환경 생성
+            vis_env = gym.make(config.env_name, render_mode="human")
+            
+            obs, _ = vis_env.reset()
+            
+            total_reward = 0
+            steps = 0
+            max_steps = 150
+            
+            start_time = time.time()
+            
+            for step in range(max_steps):
+                # 현재 모델로 행동 예측
+                if hasattr(self.model, 'predict'):
+                    action, _ = self.model.predict(obs, deterministic=True)
+                else:
+                    # 학습 전이면 무작위 행동
+                    action = vis_env.action_space.sample()
+                
+                obs, reward, terminated, truncated, info = vis_env.step(action)
+                total_reward += reward
+                steps += 1
+                
+                # 성공 여부 표시
+                if info.get('is_success', False):
+                    print(f"🎉 성공! (Step {steps}, Reward: {total_reward:.2f})")
+                
+                if terminated or truncated:
+                    obs, _ = vis_env.reset()
+                    if steps > 10:  # 너무 빨리 끝나지 않았다면 통계 출력
+                        print(f"📊 에피소드 완료: Steps={steps}, Total Reward={total_reward:.2f}")
+                    total_reward = 0
+                    steps = 0
+                
+                # 적절한 속도로 렌더링
+                time.sleep(0.02)  # 50 FPS
+                
+                # 자동 닫기 옵션 확인
+                if config.auto_close_window and time.time() - start_time > config.viz_duration:
+                    print(f"⏰ {config.viz_duration}초 경과 - 자동으로 다음 단계 진행")
+                    break
+            
+            vis_env.close()
+            print(f"✅ [{stage_name}] 시각화 완료!")
+            
+            # 비디오도 함께 저장
+            self.record_stage_video(stage_name)
+            
+        except Exception as e:
+            print(f"⚠️ 시각화 중 오류 발생: {e}")
+            print("💡 X11 디스플레이가 없거나 GUI 환경이 아닌 경우 발생할 수 있습니다.")
+            print("🎥 비디오만 녹화합니다...")
+            self.record_stage_video(stage_name)
+    
+    def record_stage_video(self, stage_name):
+        """단계별 비디오를 저장합니다."""
+        try:
+            print(f"🎥 [{stage_name}] 비디오 녹화 중...")
+            
+            # 비디오 저장용 환경
+            video_env = create_env(config.env_name, render_mode="rgb_array")
+            video_env = DummyVecEnv([lambda: video_env])
+            
+            # 단계별 비디오 경로
+            stage_video_dir = os.path.join(config.video_dir, "training_stages")
+            os.makedirs(stage_video_dir, exist_ok=True)
+            
+            video_path = os.path.join(stage_video_dir, f"{stage_name}_step_{self.num_timesteps}")
+            video_env = VecVideoRecorder(
+                video_env,
+                video_path,
+                record_video_trigger=lambda x: x == 0,
+                video_length=200,  # 짧은 비디오
+                name_prefix=stage_name
+            )
+            
+            # 비디오 녹화
+            obs = video_env.reset()
+            for i in range(200):
+                if hasattr(self.model, 'predict'):
+                    action, _ = self.model.predict(obs, deterministic=True)
+                else:
+                    action = [video_env.action_space.sample()]
+                
+                obs, _, dones, _ = video_env.step(action)
+                if dones[0]:
+                    obs = video_env.reset()
+            
+            video_env.close()
+            print(f"💾 [{stage_name}] 비디오 저장 완료: {video_path}")
+            
+        except Exception as e:
+            print(f"⚠️ 비디오 녹화 중 오류: {e}")
 
 def create_env(env_name, render_mode=None):
     """환경을 생성합니다."""
@@ -144,6 +285,7 @@ def train_model():
     print(f"🎯 환경: {config.env_name}")
     print(f"📊 총 학습 스텝: {config.total_timesteps:,}")
     print(f"🧠 알고리즘: SAC (Stable-Baselines3)")
+    print(f"🎬 실시간 시각화: 6단계 (0%, 20%, 40%, 60%, 80%, 100%)")
     print("-" * 60)
     
     # 디렉토리 생성
@@ -166,7 +308,7 @@ def train_model():
     # SAC 모델 생성
     print("\n🧠 SAC 모델 초기화...")
     model = SAC(
-        policy="MlpPolicy",
+        policy="MultiInputPolicy",  # Dict 관찰 공간용 정책 ✅
         env=env,
         learning_rate=config.learning_rate,
         buffer_size=config.buffer_size,
@@ -187,9 +329,14 @@ def train_model():
     # 콜백 설정
     callbacks = []
     
-    # 1. 학습 모니터링 콜백
+    # 1. 학습 모니터링 콜백 (시각화 기능 포함)
     training_callback = TrainingCallback(config.log_dir)
+    training_callback.model = model  # 모델 참조 추가
     callbacks.append(training_callback)
+    
+    # 학습 전 무작위 행동 시각화
+    print("\n🎬 [학습 전] 무작위 행동 시연을 시작합니다!")
+    training_callback.visualize_current_performance("0_학습전_무작위")
     
     # 2. 평가 콜백
     eval_callback = EvalCallback(
@@ -214,6 +361,9 @@ def train_model():
     
     # 학습 시작
     print("\n🚀 학습 시작!")
+    print("=" * 60)
+    print("💡 학습 중 20%, 40%, 60%, 80%, 100% 지점에서 자동으로 실시간 시각화가 진행됩니다!")
+    print("💡 MuJoCo 창이 나타나면 로봇의 성능 변화를 관찰해보세요!")
     print("=" * 60)
     
     start_time = time.time()
@@ -412,6 +562,7 @@ def main():
         print(f"   🧠 모델: {config.model_dir}/")
         print(f"   📊 결과: {config.results_dir}/")
         print(f"   🎥 동영상: {config.video_dir}/")
+        print(f"   🎬 단계별 영상: {config.video_dir}/training_stages/")
         print(f"   📋 로그: {config.log_dir}/")
         print(f"   📈 TensorBoard: tensorboard --logdir {config.log_dir}")
         
@@ -420,6 +571,17 @@ def main():
             print(f"   🎯 총 에피소드: {len(training_callback.episode_rewards)}")
             print(f"   🏆 최고 보상: {np.max(training_callback.episode_rewards):.2f}")
             print(f"   📈 최종 평균: {np.mean(training_callback.episode_rewards[-100:]):.2f}")
+            
+        print(f"\n🎬 생성된 단계별 시각화:")
+        stage_video_dir = os.path.join(config.video_dir, "training_stages")
+        if os.path.exists(stage_video_dir):
+            stage_files = os.listdir(stage_video_dir)
+            for i, stage in enumerate(["학습전", "20%", "40%", "60%", "80%", "100%"]):
+                stage_videos = [f for f in stage_files if f.startswith(f"{i}_")]
+                if stage_videos:
+                    print(f"   📹 {stage}: ✅")
+                else:
+                    print(f"   📹 {stage}: ❌")
     
     except Exception as e:
         print(f"❌ 오류 발생: {e}")
