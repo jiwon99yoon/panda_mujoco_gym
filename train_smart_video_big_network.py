@@ -488,7 +488,7 @@ def record_final_smart_video(model):
         wait_time=1.0
     )
     
-    stats = recorder.record_episodes(model=model, deterministic=True)
+    stats = recorder.record_episodes(model=model, deterministic=True)ㅉ
     
     print(f"🎥 최종 스마트 비디오 완료!")
     print(f"📊 총 에피소드: {stats['episodes']}")
