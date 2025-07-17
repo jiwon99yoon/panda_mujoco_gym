@@ -1,0 +1,71 @@
+/home/dyros/panda_mujoco_gym/
+├── train/
+│   ├── __init__.py
+│   ├── train_sac.py      
+│   ├── train_ppo.py      
+│   ├── train_td3.py      
+│   └── common/
+│       ├── __init__.py
+│       ├── callbacks.py   
+│       ├── wrappers.py    
+│       └── config.py      
+│
+├── evaluate/             
+│   ├── __init__.py
+│   ├── evaluate_with_video.py    # 평가 + 비디오 통합 메인 스크립트
+│   ├── video_recorder.py         # 비디오 녹화 클래스들
+│   └── compare_models.py         # 모델 간 비교 (선택적)
+│
+├── outputs/
+│   └── {experiment_name}_{timestamp}/
+│       ├── models/
+│       ├── logs/
+│       ├── evaluation/           # 평가 결과 통합 폴더
+│       │   ├── videos/
+│       │   │   ├── 0_random/
+│       │   │   ├── 1_20percent/
+│       │   │   └── ...
+│       │   ├── performance_report.json
+│       │   ├── evaluation_plots/
+│       │   └── comparison_results/
+│       └── checkpoints/
+│
+└── utils/
+    ├── __init__.py
+    ├── env_utils.py      
+    └── io_utils.py
+    
+
+train_sac.py실행 후 outputs 폴더 구조
+outputs/
+└── FrankaSlideDense-v0_SAC_20241219_143022/  # 실험 폴더
+    ├── models/
+    │   ├── final_model.zip          # 최종 모델
+    │   ├── best_model.zip           # 최고 성능 모델  
+    │   ├── vec_normalize.pkl        # 정규화 통계
+    │   ├── stage_0_random.zip       # 각 단계별 모델
+    │   ├── stage_1_20percent.zip
+    │   ├── stage_2_40percent.zip
+    │   ├── stage_3_60percent.zip
+    │   ├── stage_4_80percent.zip
+    │   └── stage_5_100percent.zip
+    │
+    ├── logs/
+    │   ├── training_log.csv         # 에피소드별 상세 로그
+    │   ├── training_summary.json    # 학습 전체 요약
+    │   └── tensorboard/             # TensorBoard 로그
+    │       └── SAC_1/
+    │
+    ├── checkpoints/                 # 정기 체크포인트
+    │   ├── sac_50000_steps.zip
+    │   ├── sac_100000_steps.zip
+    │   └── ...
+    │
+    └── evaluation/                  # 평가 시 생성될 폴더 (train시엔 비어있음)
+        ├── videos/                  # evaluate_with_video.py 실행 시 생성
+        │   ├── 0_random/
+        │   ├── 1_20percent/
+        │   └── ...
+        ├── performance_report.json  # 평가 후 생성
+        ├── evaluation_plots/        # 그래프들
+        └── comparison_results/      # 모델 비교 결과

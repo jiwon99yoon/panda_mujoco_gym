@@ -1,4 +1,5 @@
-# #/home/minjun/panda_mujoco_gym/train_sac_highlight4.py
+# train 코드 수정 필요 : 병렬 환경에 맞게끔 조정 필요 : 학습 잘 안됨 (현재)
+# # #/home/minjun/panda_mujoco_gym/train_sac_highlight4.py
 # # /home/dyros/panda_mujoco_gym/train_sac_highlight4.py
 
 #!/usr/bin/env python3
@@ -24,11 +25,12 @@ import gymnasium as gym
 import torch
 from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback, CheckpointCallback
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.noise import NormalActionNoise
+
 import pickle
 
 # 현재 디렉토리를 Python 경로에 추가
@@ -335,67 +337,6 @@ class FixedStageBasedVideoSystem:
             print(f"   평균 재생 시간: {avg_duration:.1f}초")
         
         return episode_results
-        # print(f"  목표: 성공 에피소드 {num_episodes}개 수집 (최대 {max_attempts}회 시도)")
-        
-        # while len(episode_results) < num_episodes and attempts < max_attempts:
-        #     attempts += 1
-            
-        #     result = self._record_single_episode(
-        #         recorder, model, video_env, attempts - 1, stage_name
-        #     )
-            
-        #     if result:
-        #         if result['task_completed']:
-        #             successful_episodes.append(result)
-        #             print(f"    ✅ 태스크 완료 에피소드 수집! (성공: {len(successful_episodes)}개)")
-        #         else:
-        #             failed_episodes.append(result)
-        #             print(f"    ❌ 태스크 실패 에피소드 (실패: {len(failed_episodes)}개)")
-                
-        #         # 성공 에피소드 우선, 부족하면 실패 에피소드로 채움
-        #         if len(successful_episodes) >= num_episodes:
-        #             episode_results = successful_episodes[:num_episodes]
-        #             break
-        #         elif len(successful_episodes) + len(failed_episodes) >= num_episodes:
-        #             episode_results = successful_episodes + failed_episodes[:num_episodes - len(successful_episodes)]
-        #             break
-            
-        #     # 진행 상황 출력
-        #     if attempts % 5 == 0:
-        #         print(f"    시도 {attempts}/{max_attempts}: 성공 {len(successful_episodes)}개, 실패 {len(failed_episodes)}개")
-        # # ------------------------------- 추가 ---------------------  #
-
-        # for episode_idx in range(num_episodes):
-        #     print(f"  에피소드 {episode_idx + 1}/{num_episodes} 녹화 중...")
-            
-        #     # 🎯 성공 에피소드 우선 녹화
-        #     episode_found = False
-        #     while attempts < max_attempts and not episode_found:
-        #         attempts += 1
-        #         result = self._record_single_episode(
-        #             recorder, model, video_env, episode_idx, stage_name
-        #         )
-                
-        #         if result:
-        #             episode_results.append(result)
-        #             self.stage_videos[stage_name].append(result['video_path'])
-                    
-        #             # 최고 보상 추적
-        #             if not self.best_episodes or result['reward'] > min(ep['reward'] for ep in self.best_episodes):
-        #                 self.best_episodes.append(result)
-        #                 self.best_episodes.sort(key=lambda x: x['reward'], reverse=True)
-        #                 self.best_episodes = self.best_episodes[:10]  # 상위 10개만 유지
-                    
-        #             episode_found = True  # 에피소드 완료
-                
-        #         # 성공 에피소드를 찾기 위해 더 많이 시도
-        #         if attempts % 5 == 0:
-        #             print(f"    시도 {attempts}: 성공 에피소드 탐색 중...")
-        
-        # self.completed_stages.add(stage_name)
-        # print(f"✅ [{stage_name}] 완료! {len(episode_results)}개 에피소드 녹화됨")
-        
-        # return episode_results
     
     def _create_eval_identical_env(self, eval_env_stats):
         """
@@ -425,7 +366,6 @@ class FixedStageBasedVideoSystem:
         
         return vec_env
 
-# 2. FixedStageBasedVideoSystem 클래스의 _record_single_episode 메서드 수정
 # 2. FixedStageBasedVideoSystem의 _record_single_episode 메서드 개선
     def _record_single_episode(self, recorder, model, video_env, episode_idx, stage_name):
         """단일 에피소드 녹화 - 개선된 프레임 캡처"""
@@ -537,74 +477,6 @@ class FixedStageBasedVideoSystem:
             middle_sampled = middle_frames
         
         return start_frames + middle_sampled + end_frames
-    # def _record_single_episode(self, recorder, model, video_env, episode_idx, stage_name):
-    #     """단일 에피소드 녹화"""
-    #     recorder.start_episode_recording()
-        
-    #     obs = video_env.reset()
-    #     total_reward = 0
-    #     step_count = 0
-    #     done = False
-    #     task_completed = False
-        
-    #     # 초기 프레임 추가 (올바른 전체 이미지)
-    #     rendered = video_env.render()
-    #     if rendered is not None:
-    #         img = rendered[0] if isinstance(rendered, (list, tuple)) else rendered
-    #         recorder.add_frame(img)
-
-    #     while not done:
-    #         # 액션 예측 (deterministic=True로 Eval과 동일)
-    #         if model and hasattr(model, 'predict'):
-    #             action, _ = model.predict(obs, deterministic=True)
-    #         else:
-    #             action = video_env.action_space.sample()  # 랜덤 액션
-            
-    #         # 환경 스텝
-    #         obs, rewards, dones, infos = video_env.step(action)
-    #         done = dones[0]
-    #         total_reward += rewards[0]
-    #         step_count += 1
-            
-    #         # 프레임 추가 (올바른 전체 이미지)
-    #         rendered = video_env.render()
-    #         if rendered is not None:
-    #             img = rendered[0] if isinstance(rendered, (list, tuple)) else rendered
-    #             recorder.add_frame(img)
-            
-    #         # 태스크 성공 체크 추가
-    #         if infos[0].get('is_success', False):
-    #             task_completed = True
-    #             # 성공 후 추가 프레임 녹화 (성공 상태를 명확히 보여주기 위해)
-    #             for _ in range(30):  # 1.5초 정도 추가 녹화 (20fps 기준)
-    #                 rendered = video_env.render()
-    #                 if rendered is not None:
-    #                     img = rendered[0] if isinstance(rendered, (list, tuple)) else rendered
-    #                     recorder.add_frame(img)
-    #             done = True  # 성공 후 종료            
-    #         # 무한 루프 방지
-    #         if step_count > config.max_episode_steps:
-    #             break
-        
-    #     # 🎯 실제 성공 기준 사용
-    #     episode_info = {
-    #         'episode_id': episode_idx,
-    #         'reward': total_reward,
-    #         'length': step_count,
-    #         'success': task_completed, #task 완료 여부 check
-    #         #'success': infos[0].get('is_success', False),  # ✅ 실제 성공 기준
-    #         'stage': stage_name,
-    #         'task_completed':task_completed, #추가정보
-    #     }
-        
-    #     # 비디오 저장
-    #     video_path = recorder.end_episode_recording(episode_info)
-        
-    #     if video_path:
-    #         episode_info['video_path'] = video_path
-    #         return episode_info
-        
-    #     return None
     
     def create_highlight_video(self):
         """최고 보상 에피소드들로 하이라이트 비디오 생성 (덮어쓰기 방지 추가)"""
@@ -653,59 +525,6 @@ class FixedStageBasedVideoSystem:
         
         print(f"✅ 하이라이트 비디오 완료! {highlight_dir}")    
 
-        # """최고 보상 에피소드들로 하이라이트 비디오 생성"""
-        # if not self.best_episodes:
-        #     print("❌ 하이라이트 비디오 생성 실패: 에피소드 없음")
-        #     return
-        
-        # print(f"\n🌟 하이라이트 비디오 생성 중... (상위 {len(self.best_episodes)}개 에피소드)")
-        
-        # highlight_dir = os.path.join(self.base_dir, "highlights")
-        # os.makedirs(highlight_dir, exist_ok=True)
-        
-        # # 각 최고 에피소드를 하이라이트 폴더에 복사
-        # import shutil
-        # for i, episode in enumerate(self.best_episodes):
-        #     original_path = episode['video_path']
-        #     if os.path.exists(original_path):
-        #         highlight_filename = f"highlight_{i+1:02d}_reward{episode['reward']:.1f}_{episode['stage']}.mp4"
-        #         highlight_path = os.path.join(highlight_dir, highlight_filename)
-                
-        #         # 파일 복사
-        #         shutil.copy2(original_path, highlight_path)
-        #         print(f"  ✨ {highlight_filename}")
-        
-        # print(f"✅ 하이라이트 비디오 완료! {highlight_dir}")
-    # 5. 선택적: 비디오 후처리 함수 추가
-    def post_process_video(video_path: str, output_path: str = None):
-        """비디오 후처리 - 품질 개선 및 압축"""
-        try:
-            import subprocess
-            
-            if output_path is None:
-                output_path = video_path.replace('.mp4', '_processed.mp4')
-            
-            # FFmpeg를 사용한 후처리 (설치 필요)
-            cmd = [
-                'ffmpeg', '-i', video_path,
-                '-c:v', 'libx264',      # H.264 코덱 사용
-                '-preset', 'medium',     # 인코딩 속도/품질 균형
-                '-crf', '23',           # 품질 설정 (낮을수록 높은 품질)
-                '-movflags', '+faststart',  # 웹 스트리밍 최적화
-                '-y',                   # 덮어쓰기
-                output_path
-            ]
-            
-            subprocess.run(cmd, capture_output=True, check=True)
-            print(f"✅ 비디오 후처리 완료: {output_path}")
-            
-            # 원본 파일 교체
-            os.replace(output_path, video_path)
-            
-        except Exception as e:
-            print(f"⚠️ 비디오 후처리 실패 (FFmpeg 필요): {e}")
-            # 후처리 실패해도 원본은 유지
-
 # 설정 클래스
 class FixedConfig:
     # 환경 설정
@@ -722,6 +541,8 @@ class FixedConfig:
     gamma = 0.98
     train_freq = 4
     gradient_steps = 4
+    #gpu 작업량 증가
+    # train_freq, gradient_steps 증가 각각 8, 16
     
     # 네트워크 구조
     policy_kwargs = {
@@ -745,8 +566,8 @@ class FixedConfig:
     episodes_per_stage = 3         # 각 단계별 에피소드 수
     video_fps = 100                 # 비디오 FPS -> MUJOCO가 0.01 dt로 실행되는 것 반영하여 100으로 일단 설정해봄
     recording_fps = 120            # 녹화 시 프레임 캡처 빈도 (더 많은 프레임 캡처)
-    max_episode_steps = 4000       # 에피소드 최대 스텝 수 증가 (1000 → 2000)
-    success_extra_frames = 60      # 성공 후 추가 프레임 수 (0.5초 @ 20fps)
+    max_episode_steps = 5000       # 에피소드 최대 스텝 수 증가 (1000 → 2000)
+    success_extra_frames = 100      # 성공 후 추가 프레임 수 (0.5초 @ 20fps)
     # 환경 개선 설정
     normalize_env = True
     reward_scale = 0.1
@@ -925,18 +746,47 @@ def create_env(env_name, render_mode=None):
     
     return env
 
-def create_vec_env(env_name, n_envs=1, normalize=True):
-    """벡터화된 환경 생성"""
-    def make_env():
-        env = create_env(env_name)
-        return env
+# def create_vec_env(env_name, n_envs=1, normalize=True):
+#     """벡터화된 환경 생성"""
+#     def make_env():
+#         env = create_env(env_name)
+#         return env
     
-    vec_env = DummyVecEnv([make_env for _ in range(n_envs)])
+#     vec_env = DummyVecEnv([make_env for _ in range(n_envs)])
     
+#     if normalize:
+#         vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
+    
+#     return vec_env
+
+#병렬 환경으로 교체 - n_envs=4로 설정, 
+# export 추가 from stable_baselines3.common.vec_env import SubprocVecEnv
+# def create_vec_env(env_name, n_envs=4, normalize=True):
+#     def make_env():
+#         return lambda: create_env(env_name)
+
+#     vec_env = SubprocVecEnv([make_env() for _ in range(n_envs)])
+
+#     if normalize:
+#         vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
+
+#     return vec_env
+def create_vec_env(env_name: str, normalize: bool = True, num_envs: int = 4):
+    def make_env_fn(rank):
+        def _init():
+            env = gym.make(env_name)  # ✅ 이미 등록된 환경 사용
+            return env
+        return _init
+
+    env_fns = [make_env_fn(i) for i in range(num_envs)]
+    vec_env = SubprocVecEnv(env_fns)
+
     if normalize:
         vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
-    
+        vec_env.reset()  # 필수! 초기화 안 하면 에러 날 수 있음
+
     return vec_env
+
 
 def create_model(env):
     """SAC 모델 생성"""
@@ -1044,146 +894,6 @@ def fixed_compare_best_vs_final_models(final_model, training_callback):
 
     return comparison_results
 
-# def fixed_compare_best_vs_final_models(final_model, training_callback):
-#     """🎯 수정된 Best Model vs Final Model 성능 비교"""
-#     print("\n🔍 수정된 Best Model vs Final Model 성능 비교...")
-    
-#     # Best model 로드
-#     best_model_path = None
-#     model_dir = config.model_dir
-    
-#     # Best model 파일 찾기
-#     for root, dirs, files in os.walk(model_dir):
-#         if "best_model" in root:
-#             for file in files:
-#                 if file.endswith('.zip'):
-#                     best_model_path = os.path.join(root, file)
-#                     break
-#             if best_model_path:
-#                 break
-    
-#     if not best_model_path or not os.path.exists(best_model_path):
-#         print("❌ Best model을 찾을 수 없습니다. 비교를 건너뜁니다.")
-#         return None
-    
-#     try:
-#         print(f"📁 Best model 로드: {best_model_path}")
-#         best_model = SAC.load(best_model_path)
-        
-#         # 🔧 Eval과 동일한 환경 생성
-#         eval_env = create_env(config.env_name)
-        
-#         print("🔄 성능 평가 중...")
-        
-#         # Best model 평가
-#         print("   Best Model 평가 중...")
-#         best_rewards, best_lengths = evaluate_policy(
-#             best_model, eval_env, 
-#             n_eval_episodes=50, 
-#             deterministic=True, 
-#             return_episode_rewards=True
-#         )
-        
-#         # Final model 평가  
-#         print("   Final Model 평가 중...")
-#         final_rewards, final_lengths = evaluate_policy(
-#             final_model, eval_env,
-#             n_eval_episodes=50,
-#             deterministic=True,
-#             return_episode_rewards=True
-#         )
-        
-#         # 🎯 실제 성공률 계산 (evaluate_policy의 info로부터)
-#         # 실제 성공 에피소드 카운트를 위한 추가 평가
-#         best_success_count = 0
-#         final_success_count = 0
-        
-#         # Best model 성공률 측정
-#         for _ in range(50):
-#             obs, _ = eval_env.reset()
-#             done = False
-#             while not done:
-#                 action, _ = best_model.predict(obs, deterministic=True)
-#                 obs, reward, terminated, truncated, info = eval_env.step(action)
-#                 done = terminated or truncated
-#                 if done and info.get('is_success', False):
-#                     best_success_count += 1
-#                     break
-        
-#         # Final model 성공률 측정
-#         for _ in range(50):
-#             obs, _ = eval_env.reset()
-#             done = False
-#             while not done:
-#                 action, _ = final_model.predict(obs, deterministic=True)
-#                 obs, reward, terminated, truncated, info = eval_env.step(action)
-#                 done = terminated or truncated
-#                 if done and info.get('is_success', False):
-#                     final_success_count += 1
-#                     break
-        
-#         best_success_rate = best_success_count / 50
-#         final_success_rate = final_success_count / 50
-        
-#         # 결과 정리
-#         comparison_results = {
-#             'best_model': {
-#                 'mean_reward': np.mean(best_rewards),
-#                 'std_reward': np.std(best_rewards),
-#                 'mean_length': np.mean(best_lengths),
-#                 'success_rate': best_success_rate,  # ✅ 실제 성공률
-#                 'rewards': best_rewards
-#             },
-#             'final_model': {
-#                 'mean_reward': np.mean(final_rewards),
-#                 'std_reward': np.std(final_rewards),
-#                 'mean_length': np.mean(final_lengths),
-#                 'success_rate': final_success_rate,  # ✅ 실제 성공률
-#                 'rewards': final_rewards
-#             }
-#         }
-        
-#         # 결과 출력
-#         print("\n" + "="*60)
-#         print("📊 수정된 BEST MODEL vs FINAL MODEL 비교 결과")
-#         print("="*60)
-        
-#         print(f"🏆 Best Model:")
-#         print(f"   평균 보상: {comparison_results['best_model']['mean_reward']:.2f} ± {comparison_results['best_model']['std_reward']:.2f}")
-#         print(f"   실제 성공률: {comparison_results['best_model']['success_rate']:.3f}")
-#         print(f"   평균 길이: {comparison_results['best_model']['mean_length']:.1f}")
-        
-#         print(f"\n🎯 Final Model:")
-#         print(f"   평균 보상: {comparison_results['final_model']['mean_reward']:.2f} ± {comparison_results['final_model']['std_reward']:.2f}")
-#         print(f"   실제 성공률: {comparison_results['final_model']['success_rate']:.3f}")
-#         print(f"   평균 길이: {comparison_results['final_model']['mean_length']:.1f}")
-        
-#         # 승자 판정
-#         best_better_reward = comparison_results['best_model']['mean_reward'] > comparison_results['final_model']['mean_reward']
-#         best_better_success = comparison_results['best_model']['success_rate'] > comparison_results['final_model']['success_rate']
-        
-#         print(f"\n🏅 종합 판정:")
-#         if best_better_reward and best_better_success:
-#             print("   🥇 Best Model이 더 우수합니다!")
-#         elif not best_better_reward and not best_better_success:
-#             print("   🥇 Final Model이 더 우수합니다!")
-#         else:
-#             print("   🤝 두 모델이 각각 장단점이 있습니다!")
-        
-#         # 시각화 생성
-#         create_comparison_visualization(comparison_results)
-        
-#         # 🎯 수정된 비교 비디오 생성
-#         create_fixed_comparison_videos(best_model, final_model, training_callback)
-        
-#         print("="*60)
-        
-#         return comparison_results
-        
-    # except Exception as e:
-    #     print(f"❌ 모델 비교 중 오류 발생: {e}")
-    #     return None
-
 def create_comparison_visualization(comparison_results):
     """Best vs Final 모델 비교 시각화"""
     try:
@@ -1247,42 +957,6 @@ def create_comparison_visualization(comparison_results):
         
     except Exception as e:
         print(f"⚠️ 시각화 생성 오류: {e}")
-
-# def create_fixed_comparison_videos(best_model, final_model, training_callback):
-#     """🎯 수정된 Best vs Final 모델 비교 비디오 생성"""
-#     try:
-#         print("🎥 수정된 Best vs Final 모델 비교 비디오 생성 중...")
-        
-#         # 비교 비디오 디렉토리
-#         comparison_dir = os.path.join(config.video_dir, "model_comparison")
-#         os.makedirs(comparison_dir, exist_ok=True)
-        
-#         # 🔧 수정된 비디오 시스템 사용
-#         fixed_video_system = FixedStageBasedVideoSystem(
-#             base_dir=comparison_dir,
-#             total_timesteps=config.total_timesteps
-#         )
-        
-#         print("   Best Model 에피소드 녹화 중...")
-#         fixed_video_system.record_stage_episodes(
-#             stage_name="best_model",
-#             model=best_model,
-#             eval_env_stats=training_callback.eval_env_stats,
-#             num_episodes=3
-#         )
-        
-#         print("   Final Model 에피소드 녹화 중...")
-#         fixed_video_system.record_stage_episodes(
-#             stage_name="final_model", 
-#             model=final_model,
-#             eval_env_stats=training_callback.eval_env_stats,
-#             num_episodes=3
-#         )
-        
-#         print(f"✅ 수정된 비교 비디오 완료: {comparison_dir}")
-        
-#     except Exception as e:
-#         print(f"⚠️ 비교 비디오 생성 오류: {e}")
 
 def create_fixed_comparison_videos(best_model, final_model, training_callback):
     print("🎥 시점별 Best vs Final 모델 비교 비디오 생성 중...")

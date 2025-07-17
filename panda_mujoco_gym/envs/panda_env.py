@@ -137,8 +137,12 @@ class FrankaEnv(MujocoRobotEnv):
 
         info = {"is_success": self._is_success(obs["achieved_goal"], self.goal)}
 
-        terminated = info["is_success"]
-        truncated = self.compute_truncated(obs["achieved_goal"], self.goal, info)
+        terminated = bool(info["is_success"])
+        truncated = bool(self.compute_truncated(obs["achieved_goal"], self.goal, info))
+
+
+        # terminated = info["is_success"]
+        # truncated = self.compute_truncated(obs["achieved_goal"], self.goal, info)
         reward = self.compute_reward(obs["achieved_goal"], self.goal, info)
 
         return obs, reward, terminated, truncated, info
