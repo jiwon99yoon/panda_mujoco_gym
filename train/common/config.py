@@ -37,20 +37,39 @@ class BaseConfig:
     base_dir: str = "outputs"
     experiment_name: Optional[str] = None
     
-    # 난수 시드 (worker마다 seed+rank 로 분리)
-    seed: int = 0
+    # 난수 시드 (worker마다 seed+rank 로 분리) -> x
+    #seed: int = 0
     
+    # 난수 시드 - 랜덤값 설정
+    seed: Optional[int] = None  #
+
     def __post_init__(self):
         """초기화 후 처리"""
         if self.experiment_name is None:
             self.experiment_name = f"{self.env_name}_{self.algorithm}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        # 전역 시드 고정 (numpy, torch, random)
-        import random, numpy as _np, torch as _th
-        random.seed(self.seed)
-        _np.random.seed(self.seed)
-        _th.manual_seed(self.seed)
-        
+        # # 전역 시드 고정 (numpy, torch, random)
+        # import random, numpy as _np, torch as _th
+        # random.seed(self.seed)
+        # _np.random.seed(self.seed)
+        # _th.manual_seed(self.seed)
+
+        # 시드가 지정된 경우에만 고정 (주로 디버깅/재현성을 위해)        
+        if self.seed is not None:
+            import random
+            import numpy as np
+            import torch
+
+            random.seed(self.seed)
+            np.random.seed(self.seed)
+            torch.manual_seed(self.seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(self.seed)
+                torch.cuda.manual_seed_all(self.seed)        
+
+            print(f"🎲 시드 고정: {self.seed}")
+        else:
+            print("🎲 랜덤 시드 사용 (매 에피소드마다 다른 초기 상태)")
         # 실험별 디렉토리 설정
         self.exp_dir = os.path.join(self.base_dir, self.experiment_name)
         self.model_dir = os.path.join(self.exp_dir, "models")
@@ -76,7 +95,7 @@ class SACConfig(BaseConfig):
     """SAC 전용 설정"""
     # 벡터 환경 병렬 개수
     n_envs: int = 4
-    # (seed 는 BaseConfig 에서 상속받습니다)
+    # (seed 는 BaseConfig 에서 상속받습니다 -> SEED는 랜덤)
         
     # SAC 하이퍼파라미터
     learning_rate: float = 1e-4
@@ -85,8 +104,8 @@ class SACConfig(BaseConfig):
     batch_size: int = 512
     tau: float = 0.01
     gamma: float = 0.98
-    train_freq: int = 4
-    gradient_steps: int = 4
+    train_freq: int = 1
+    gradient_steps: int = 1
     
     # 네트워크 구조
     policy_kwargs: Dict[str, Any] = field(default_factory=lambda: {
@@ -99,7 +118,7 @@ class SACConfig(BaseConfig):
     action_noise_std: float = 0.2
     
     # 추가 학습 기법
-    use_sde: bool = False #SDE 비활성화
+    use_sde: bool = True #SDE 활성화 (비활성화 -> False)
     sde_sample_freq: int = 4
     
     # 학습 단계 정의 (비디오 녹화용)

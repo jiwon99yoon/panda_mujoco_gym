@@ -57,16 +57,21 @@ def create_vec_env(env_name, n_envs=1, normalize=True, reward_scale=1.0, seed=No
     def make_env(rank):
         def _init():
             env = create_env(env_name, reward_scale=reward_scale)
+
+            # 수정: seed 설정 제거 (매번 랜덤하게)
+            # seed가 있으면 action/observation space의 샘플링용으로만 사용
             if seed is not None:
-                env.reset(seed=seed + rank)
                 env.action_space.seed(seed + rank)
                 env.observation_space.seed(seed + rank)
             return env
         return _init
 
-    env_fns = [make_env(i) for i in range(n_envs)]
-    vec_env = SubprocVecEnv(env_fns)
-    
+    # n_envs가 1이면 디버깅 용이한 DummyVecEnv 사용
+    if n_envs == 1:
+        vec_env = DummyVecEnv([make_env(0)])
+    else:
+        env_fns = [make_env(i) for i in range(n_envs)]
+        vec_env = SubprocVecEnv(env_fns, start_method='fork')    
     
     if normalize:
         vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
@@ -141,10 +146,10 @@ def train_sac(config: SACConfig):
     )
     eval_env = create_vec_env(
         config.env_name,
-        n_envs=config.n_envs, 
+        n_envs=1,  #단일환경에서 평가하기
         normalize=config.normalize_env,
         reward_scale=config.reward_scale,
-        seed=config.seed + 1000
+        seed=config.seed
     )
     
     # 로거 설정
@@ -263,9 +268,9 @@ def main():
     parser.add_argument("--exp-name", type=str, default=None, help="실험 이름")
     parser.add_argument("--reward-scale", type=float, default=0.1, help="보상 스케일")
     #main()에 n_envs 인자 추가
-    parser.add_argument("--n-envs", type=int, default=16, help="병렬 환경 개수")
+    parser.add_argument("--n-envs", type=int, default=4, help="병렬 환경 개수")
     #seed 인자 추가
-    parser.add_argument("--seed", type=int, default=0, help="난수 시드 (worker마다 seed+rank 적용)")     
+    parser.add_argument("--seed", type=int, default=None, help="난수 시드 (worker마다 seed+rank 적용)")     
 
     args = parser.parse_args()
     
