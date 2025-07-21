@@ -1,2 +1,5 @@
 # Ignore all ZIP archives
 *.zip
+
+# Ignore output and lower file
+outputs/

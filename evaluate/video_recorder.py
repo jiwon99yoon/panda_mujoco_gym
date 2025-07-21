@@ -9,7 +9,6 @@ import numpy as np
 from typing import List, Dict, Optional
 import json
 
-
 class EpisodeVideoRecorder:
     """에피소드별 개별 비디오 녹화 클래스"""
     
@@ -116,8 +115,9 @@ class EpisodeVideoRecorder:
 class StageVideoRecorder:
     """학습 단계별 비디오 녹화 시스템"""
     
-    def __init__(self, base_dir: str):
+    def __init__(self, base_dir: str, fps: int = 30):
         self.base_dir = base_dir
+        self.fps = fps
         self.stage_results = {}
         self.best_episodes = []
         os.makedirs(base_dir, exist_ok=True)
@@ -130,7 +130,7 @@ class StageVideoRecorder:
         stage_dir = os.path.join(self.base_dir, stage_name)
         os.makedirs(stage_dir, exist_ok=True)
         
-        recorder = EpisodeVideoRecorder(stage_dir)
+        recorder = EpisodeVideoRecorder(stage_dir, fps=self.fps)
         
         episode_results = []
         successful_episodes = []

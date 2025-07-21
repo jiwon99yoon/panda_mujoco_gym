@@ -1,3 +1,4 @@
+#/home/dyros/panda_mujoco_gym/panda_mujoco_gym/__init__.py
 import os
 from gymnasium.envs.registration import register
 

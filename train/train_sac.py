@@ -1,4 +1,3 @@
-# train 코드 수정 필요 : 병렬 환경에 맞게끔 조정 필요 : 학습 잘 안됨 (현재)
 #/home/dyros/panda_mujoco_gym/train/train_sac.py
 #!/usr/bin/env python3
 """
@@ -36,10 +35,13 @@ from train.common.wrappers import RewardScalingWrapper, SuccessTrackingWrapper
 from train.common.callbacks import TrainingCallback
 #from common import SACConfig, RewardScalingWrapper, SuccessTrackingWrapper, TrainingCallback
 
+# 한 에피소드 당 step을 기본 50 -> 1,000으로 wrapping하기 위해
+from gymnasium.wrappers import TimeLimit
 
 def create_env(env_name, render_mode=None, reward_scale=1.0):
     """환경 생성 (래퍼 적용)"""
-    env = gym.make(env_name, render_mode=render_mode)
+    raw = gym.make(env_name, render_mode=render_mode)
+    env = TimeLimit(raw, max_episode_steps = 1000) #episode의 timestep 1000으로 할당
     env = Monitor(env)
     
     # 보상 스케일링 적용
@@ -222,7 +224,7 @@ def train_sac(config: SACConfig):
     print("\n🔍 최종 평가...")
     mean_reward, std_reward = evaluate_policy(
         model, eval_env, 
-        n_eval_episodes=50,
+        n_eval_episodes=50, #n_eval_episode : 평가 시뮬레이션 횟수(개수)
         deterministic=True
     )
     print(f"🏆 최종 평가 결과: {mean_reward:.2f} ± {std_reward:.2f}")

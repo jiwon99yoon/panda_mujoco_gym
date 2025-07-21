@@ -1,3 +1,34 @@
+#학습 : train_sac.py
+conda activate panda_rl
+cd ~/panda_mujoco_gym
+python train/train_sac.py
+-------------------------------------------------------------------------------------------
+#학습 중 tensorboard 확인
+conda activate panda_rl
+cd ~/panda_mujoco_gym
+tensorboard --logdir outputs/
+-------------------------------------------------------------------------------------------
+#gpu 로드량 확인
+watch -n 1 nvidia-smi
+-------------------------------------------------------------------------------------------
+#cpu 로드량 확인
+htop
+-------------------------------------------------------------------------------------------
+#가장 최근 모델 평가 및 비디오 생성
+conda activate panda_rl
+cd ~/panda_mujoco_gym
+python evaluate/evaluate_with_video.py --latest
+-------------------------------------------------------------------------------------------
+# 특정 outputs생성된 모델의 평가 및 비디오 생성
+conda activate panda_rl
+cd ~/panda_mujoco_gym
+export MUJOCO_GL=egl
+python evaluate/evaluate_with_video.py --exp-dir /home/dyros/panda_mujoco_gym/outputs/FrankaSlideDense-v0_SAC_20250720_235112
+
+# todo : sac, ppo, ddpg, td3등 on, off policy에 대해 학습을 진행하는 python file 만들고,
+이후 이에 맞는 환경 불러오도록 (ex. push, slide, pickandplace 코드 수정)
+-------------------------------------------------------------------------------------------
+#panda_mujoco_gym의 디렉토리 구조
 /home/dyros/panda_mujoco_gym/
 ├── train/
 │   ├── __init__.py
@@ -35,7 +66,7 @@
     ├── env_utils.py      
     └── io_utils.py
     
-
+-------------------------------------------------------------------------------------------
 train_sac.py실행 후 outputs 폴더 구조
 outputs/
 └── FrankaSlideDense-v0_SAC_20241219_143022/  # 실험 폴더

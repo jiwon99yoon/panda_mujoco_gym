@@ -33,8 +33,16 @@ class BaseConfig:
     save_freq: int = 100_000
     checkpoint_freq: int = 50_000
     
-    # 디렉토리 설정
-    base_dir: str = "outputs"
+    # 디렉토리 설정 - 상대 경로 기준 : 명령이 실행되는 위치에 따라 폴더 생성 위치가 달라짐 
+    #base_dir: str = "outputs" 
+    # 디렉토리 설정 - 프로젝트 루트 기준 
+    base_dir: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "outputs"
+    )
+    # __file__ : 현재 파일의 경로 (ex. /home/dyros/panda_mujoco_gym/trian/common/config.py)
+    # os.path.abspath(__file__) : 절대 경로로 변환
+    # os.path.dirname: 파일명 제거 3번
     experiment_name: Optional[str] = None
     
     # 난수 시드 (worker마다 seed+rank 로 분리) -> x

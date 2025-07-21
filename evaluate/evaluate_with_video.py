@@ -155,10 +155,17 @@ def evaluate_experiment(exp_dir: str,
     evaluation_dir = os.path.join(exp_dir, 'evaluation')
     os.makedirs(evaluation_dir, exist_ok=True)
     
-    # 비디오 녹화 준비
+    # 비디오 녹화 준비 (재생속도 느리게 : fps = 10: fps 조정
+    #MuJoCo 환경의 시간 설정 이해:
+    # 시뮬레이션: dt = 0.002 (500Hz)
+    # 제어: frame_skip = 5 → 5번 시뮬레이션 후 1번 제어
+    # 실제 제어 주파수: 100Hz (0.01초마다)
+
+    # 0721, 1226 -> episode step 을 1,000 | fps를 100으로 고정 : 여전히 빠름..
+    # 0721, 1459 -> episode step 을 1,000 | fps 10으로 고정 -> 이 정도되면 잘 보임
     if record_video:
         videos_dir = os.path.join(evaluation_dir, 'videos')
-        video_recorder = StageVideoRecorder(videos_dir)
+        video_recorder = StageVideoRecorder(videos_dir, fps = 10)
     
     # 평가 결과 저장
     all_results = {
