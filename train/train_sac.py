@@ -41,7 +41,7 @@ from gymnasium.wrappers import TimeLimit
 def create_env(env_name, render_mode=None, reward_scale=1.0):
     """환경 생성 (래퍼 적용)"""
     raw = gym.make(env_name, render_mode=render_mode)
-    env = TimeLimit(raw, max_episode_steps = 1000) #episode의 timestep 1000으로 할당
+    env = TimeLimit(raw, max_episode_steps = 100) #episode의 timestep 100으로 할당
     env = Monitor(env)
     
     # 보상 스케일링 적용

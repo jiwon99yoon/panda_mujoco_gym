@@ -32,7 +32,7 @@ from video_recorder import StageVideoRecorder
 def evaluate_model_performance(model, env, num_episodes: int = 50) -> Dict:
     """모델 성능 평가"""
     print(f"\n📊 모델 성능 평가 중... ({num_episodes}개 에피소드)")
-    
+
     # evaluate_policy로 기본 평가
     rewards, lengths = evaluate_policy(
         model, env,
@@ -166,7 +166,6 @@ def evaluate_experiment(exp_dir: str,
     if record_video:
         videos_dir = os.path.join(evaluation_dir, 'videos')
         video_recorder = StageVideoRecorder(videos_dir, fps = 10)
-    
     # 평가 결과 저장
     all_results = {
         'experiment_info': exp_info,

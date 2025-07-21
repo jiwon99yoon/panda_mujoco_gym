@@ -13,7 +13,7 @@ for task in ["Slide", "Push", "PickAndPlace"]:
             id=env_id,
             entry_point=f"panda_mujoco_gym.envs:Franka{task}Env",
             kwargs={"reward_type": reward_type},
-            max_episode_steps=50,
+            max_episode_steps=100, # 1000은 너무 길고 50정도로 일단 
         )
 
         ENV_IDS.append(env_id)

@@ -16,19 +16,21 @@ sys.path.append(project_root)
 
 from train.common.wrappers import RewardScalingWrapper, SuccessTrackingWrapper
 
+# 한 에피소드 당 step을 기본 50 -> 1,000으로 wrapping하기 위해
+from gymnasium.wrappers import TimeLimit
 
-def create_env(env_name, render_mode=None, reward_scale=1.0, add_wrappers=True):
-    """환경 생성 (래퍼 적용 옵션)"""
-    env = gym.make(env_name, render_mode=render_mode)
+def create_env(env_name, render_mode=None, reward_scale=1.0):
+    """환경 생성 (래퍼 적용)"""
+    raw = gym.make(env_name, render_mode=render_mode)
+    env = TimeLimit(raw, max_episode_steps = 100) #episode의 timestep 100으로 할당
     env = Monitor(env)
     
-    if add_wrappers:
-        # 보상 스케일링 적용
-        if reward_scale != 1.0:
-            env = RewardScalingWrapper(env, scale=reward_scale)
-        
-        # 성공률 추적 추가
-        env = SuccessTrackingWrapper(env)
+    # 보상 스케일링 적용
+    if reward_scale != 1.0:
+        env = RewardScalingWrapper(env, scale=reward_scale)
+    
+    # 성공률 추적 추가
+    env = SuccessTrackingWrapper(env)
     
     return env
 
