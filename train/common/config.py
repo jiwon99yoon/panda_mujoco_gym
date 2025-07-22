@@ -24,9 +24,9 @@ class BaseConfig:
     normalize_env: bool = True
     reward_scale: float = 0.1
     
-    # 평가 설정
-    eval_freq: int = 20_000
-    n_eval_episodes: int = 20
+    # 평가 설정 -> 논문에 맞게 change, 기존 eval_freq = 20_000, n_eval_episode = 20
+    eval_freq: int = 2_000
+    n_eval_episodes: int = 15
     eval_deterministic: bool = True
     
     # 저장 설정
@@ -105,23 +105,48 @@ class SACConfig(BaseConfig):
     n_envs: int = 4
     # (seed 는 BaseConfig 에서 상속받습니다 -> SEED는 랜덤)
         
-    # SAC 하이퍼파라미터
-    learning_rate: float = 1e-4
-    buffer_size: int = 1_000_000
-    learning_starts: int = 10_000
-    batch_size: int = 512
-    tau: float = 0.01
-    gamma: float = 0.98
-    train_freq: int = 1
-    gradient_steps: int = 1
+    ## SAC 하이퍼파라미터
+    # learning_rate: float = 1e-4
+    # buffer_size: int = 1_000_000
+    # learning_starts: int = 10_000
+    # batch_size: int = 512
+    # tau: float = 0.01
+    # gamma: float = 0.98
+    # train_freq: int = 1
+    # gradient_steps: int = 1
     
-    # 네트워크 구조
+    ## 네트워크 구조
+    # policy_kwargs: Dict[str, Any] = field(default_factory=lambda: {
+    #     "net_arch": [256, 256, 128],
+    #     "activation_fn": torch.nn.ReLU,
+    #     "normalize_images": False
+    # })
+    # # 탐험 노이즈
+    # action_noise_std: float = 0.2
+    
+    # # 추가 학습 기법
+    # use_sde: bool = True #SDE 활성화 (비활성화 -> False)
+    # sde_sample_freq: int = 4
+
+    # 기존 SAC 학습 하이퍼 파라미터 -> 논문 대로 Change
+    learning_rate: float = 1e-3
+    buffer_size: int = 1_000_000
+    batch_size: int = 2048
+    tau: float = 0.05                   # polyak update tau : polyak(soft) 업데이트 계수가 해당, 타깃 네트워크 파라미터에서의 tau 
+    gamma: float = 0.95                 # discount factor 
+
+    # 아래 값들은 논문에 언급 x -> 기본 설정으로 할당 (SB3)
+    learning_starts: int = 100       # SAC이 환경 상호작용만 하며 경험을 모으기만 할 타임STEP
+    train_freq: int = 1                 # 환경 스텝 N회 진행할 때마다 학습을 수행하겠다는 의미
+    gradient_steps: int = 1             # 학습할 때 N번의 경사하강 스텝을 밟을지 결정 
+    
+    # 네트워크 구조 change -> 논문
     policy_kwargs: Dict[str, Any] = field(default_factory=lambda: {
-        "net_arch": [256, 256, 128],
+        "net_arch": [512, 512, 512],
         "activation_fn": torch.nn.ReLU,
         "normalize_images": False
     })
-    
+
     # 탐험 노이즈
     action_noise_std: float = 0.2
     
